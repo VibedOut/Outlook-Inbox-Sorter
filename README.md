@@ -160,6 +160,9 @@ The script prints results to the screen as it runs:
   MOVED  [contact@customerdomain.com] -> Customer Folder (direct domain match)
          Subject: Your subject here
 
+  SKIPPED [contact@customerdomain.com] Too recent (2.1h old, threshold: 24h)
+          Subject: Your subject here
+
   LEFT   [hello@unknowncompany.com] No matching customer (left in inbox)
          Subject: Your subject here
 
@@ -203,6 +206,13 @@ Just add another line in `$CustomerMap` pointing to the same folder name.
 **Adding a vendor to exclude**
 Add their domain to `$VendorDomains`.
 
+**Changing the age threshold**
+By default emails less than 24 hours old are skipped and left in the inbox, giving you time to read fresh emails before they are sorted. You can change this by adjusting `$AgeThresholdHours` in the configuration section:
+```
+$AgeThresholdHours = 48   # wait 2 days before sorting
+$AgeThresholdHours = 0    # disable the threshold entirely — sort everything
+```
+
 ---
 
 ## Using an AI Assistant to Configure the Script
@@ -212,6 +222,9 @@ If you are not comfortable editing the script manually, you can paste the conten
 > *"Here is a PowerShell script. Please fill in the configuration section with the following: my mailbox is support@mycompany.com, my internal domain is mycompany.com, and my customers are: [list of customers and domains]"*
 
 The AI will return a fully populated script ready to paste into Notepad and save.
+
+**Tip — use a screenshot for your folder names:**
+Rather than typing out all your customer folder names manually, take a screenshot of your Outlook folder list and attach it to your message to the AI. The AI can read the folder names directly from the screenshot, which means no typos, no missed capitalisation, and no guesswork. This is the easiest way to get the `$CustomerMap` and `$SubjectKeywords` sections populated accurately in one go.
 
 ---
 
