@@ -12,7 +12,8 @@
 # 5. Add any vendor/third party domains to $VendorDomains
 # 6. Save as a .ps1 file locally (do not download - save via Notepad to avoid
 #    Windows blocking the script)
-# 7. Run via the provided .bat file
+# 7. Set your age threshold in the AGE THRESHOLD section (default: 24 hours)
+# 8. Run via the provided .bat file
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -72,8 +73,15 @@ $SubjectKeywords = @{
 
 }
 
-# Maximum number of emails to process per run (increase if needed)
-$MaxEmails = 100
+
+# -----------------------------------------------------------------------------
+# AGE THRESHOLD (OPTIONAL)
+# Emails newer than this many hours will be skipped and left in the inbox.
+# This gives you a buffer to read fresh emails before they are sorted.
+# Set to 0 to disable and sort all emails regardless of age.
+# Default is 24 hours.
+# -----------------------------------------------------------------------------
+$AgeThresholdHours = 24
 
 # -----------------------------------------------------------------------------
 # SCRIPT — No changes needed below this line
@@ -144,9 +152,8 @@ Write-Host ""
 
 # Get emails from inbox
 $Emails      = $Inbox.Items
-$TotalEmails = [Math]::Min($Emails.Count, $MaxEmails)
 
-Write-Host "Found $($Emails.Count) email(s) in inbox. Processing up to $MaxEmails..." -ForegroundColor White
+Write-Host "Found $($Emails.Count) email(s) in inbox. Processing all..." -ForegroundColor White
 Write-Host ""
 Write-Host "Processing..." -ForegroundColor Yellow
 Write-Host ""
@@ -158,10 +165,21 @@ $DeletedCount = 0
 $MovedSummary = @()
 $Processed    = 0
 
-for ($i = $Emails.Count; $i -ge 1 -and $Processed -lt $MaxEmails; $i--) {
+for ($i = $Emails.Count; $i -ge 1; $i--) {
     $Email = $Emails.Item($i)
 
     if ($Email.Class -ne 43) { continue }
+
+    # Age threshold check - skip emails newer than $AgeThresholdHours
+    if ($AgeThresholdHours -gt 0) {
+        $EmailAge = (Get-Date) - $Email.ReceivedTime
+        if ($EmailAge.TotalHours -lt $AgeThresholdHours) {
+            Write-Host "  SKIPPED [$($Email.SenderEmailAddress)] Too recent ($([math]::Round($EmailAge.TotalHours, 1))h old, threshold: ${AgeThresholdHours}h)" -ForegroundColor DarkYellow
+            Write-Host "          Subject: $($Email.Subject)" -ForegroundColor DarkGray
+            $SkippedCount++
+            continue
+        }
+    }
 
     $SenderAddress    = $Email.SenderEmailAddress
     $Subject          = $Email.Subject
@@ -287,6 +305,7 @@ Write-Host "=============================================" -ForegroundColor Cyan
 Write-Host "  Total emails processed     : $Processed" -ForegroundColor White
 Write-Host "  Moved to folders           : $MovedCount" -ForegroundColor Green
 Write-Host "  Left in inbox              : $SkippedCount" -ForegroundColor DarkGray
+    Write-Host "    (includes emails skipped as too recent)" -ForegroundColor DarkGray
 Write-Host "  Automatic replies deleted  : $DeletedCount" -ForegroundColor DarkGray
 if ($ErrorCount -gt 0) {
     Write-Host "  Errors                     : $ErrorCount" -ForegroundColor Red
