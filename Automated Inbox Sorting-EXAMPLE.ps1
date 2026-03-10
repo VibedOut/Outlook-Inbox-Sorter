@@ -36,25 +36,30 @@ $SubjectKeywords = @{
     "Adidas"        = "Adidas"
 }
 
+# Age threshold - emails newer than this many hours are skipped (0 = disabled)
+$AgeThresholdHours = 24
+
 # -----------------------------------------------------------------------------
 # MOCK EMAILS
 # -----------------------------------------------------------------------------
 $MockEmails = @(
 
-    # Should match: direct sender domain
+    # Should match: direct sender domain (48h old - will be sorted)
     [PSCustomObject]@{
         Subject    = "Order issue"
         From       = "taylorswift@apple.com"
         Recipients = @("support@yourcompany.com")
         Body       = "Hi, I am having an issue with my order."
+        AgeHours   = 48
     },
 
-    # Should match: direct sender domain
+    # Should be skipped: too recent (2h old, under 24h threshold)
     [PSCustomObject]@{
         Subject    = "RMA Request"
         From       = "elonmusk@tesla.com"
         Recipients = @("support@yourcompany.com")
         Body       = "Please process the following RMA."
+        AgeHours   = 2
     },
 
     # Should match: recipient domain
@@ -63,6 +68,8 @@ $MockEmails = @(
         From       = "staff@yourcompany.com"
         Recipients = @("beyonce@spotify.com")
         Body       = "Hi, just following up on your case."
+    
+        AgeHours   = 48
     },
 
     # Should match: internal sender, external domain in body (RE: thread)
@@ -71,6 +78,8 @@ $MockEmails = @(
         From       = "staff@yourcompany.com"
         Recipients = @("support@yourcompany.com")
         Body       = "Thanks for your email. From: Rihanna <rihanna@netflix.com> Subject: Re: Streaming issue case 1234"
+    
+        AgeHours   = 48
     },
 
     # Should match: internal sender, external domain in body (FW: thread)
@@ -79,6 +88,8 @@ $MockEmails = @(
         From       = "staff@yourcompany.com"
         Recipients = @("support@yourcompany.com")
         Body       = "FYI. From: Billie Eilish <billie@samsung.com> To: support@yourcompany.com Subject: Faulty device"
+    
+        AgeHours   = 48
     },
 
     # Should match: Exchange DN sender treated as internal, body scan finds customer
@@ -87,6 +98,8 @@ $MockEmails = @(
         From       = "/O=YOURCOMPANY/OU=EXCHANGE ADMINISTRATIVE GROUP/CN=RECIPIENTS/CN=STAFF"
         Recipients = @("support@yourcompany.com")
         Body       = "From: Billie Eilish <billie@samsung.com> Subject: Re: Faulty device"
+    
+        AgeHours   = 48
     },
 
     # Should match: related company sender treated as internal, body scan finds customer
@@ -95,6 +108,8 @@ $MockEmails = @(
         From       = "drake@relatedcompany.com"
         Recipients = @("support@yourcompany.com")
         Body       = "From: support@yourcompany.com Subject: RE: Delivery query From: Kendrick Lamar <kendrick@amazon.com>"
+    
+        AgeHours   = 48
     },
 
     # Should match: subject keyword (lowercase - tests case insensitivity)
@@ -103,6 +118,8 @@ $MockEmails = @(
         From       = "staff@yourcompany.com"
         Recipients = @("other.staff@yourcompany.com")
         Body       = "All internal, no external addresses here."
+    
+        AgeHours   = 48
     },
 
     # Should match: fully internal thread with brand in subject
@@ -111,6 +128,8 @@ $MockEmails = @(
         From       = "staff@yourcompany.com"
         Recipients = @("manager@yourcompany.com", "support@yourcompany.com")
         Body       = "All internal discussion about the Google account."
+    
+        AgeHours   = 48
     },
 
     # Should match: vendor domain skipped, real customer found after
@@ -119,6 +138,8 @@ $MockEmails = @(
         From       = "staff@yourcompany.com"
         Recipients = @("support@yourcompany.com")
         Body       = "From: Vendor Contact <contact@somevendor.com> From: Kanye West <kanye@adidas.com>"
+    
+        AgeHours   = 48
     },
 
     # Should NOT match: internal email with no customer domain
@@ -127,6 +148,8 @@ $MockEmails = @(
         From       = "staff@yourcompany.com"
         Recipients = @("everyone@yourcompany.com")
         Body       = "Sounds good, see you there."
+    
+        AgeHours   = 48
     },
 
     # Should NOT match: unknown external domain
@@ -135,6 +158,8 @@ $MockEmails = @(
         From       = "hello@unknowncompany.com"
         Recipients = @("support@yourcompany.com")
         Body       = "We would like to discuss a partnership."
+    
+        AgeHours   = 48
     },
 
     # Should be deleted: automatic reply
@@ -143,6 +168,8 @@ $MockEmails = @(
         From       = "arianagrande@apple.com"
         Recipients = @("support@yourcompany.com")
         Body       = "I am out of the office until Monday."
+    
+        AgeHours   = 48
     }
 )
 
@@ -180,6 +207,17 @@ foreach ($Email in $MockEmails) {
         $SenderDomain = $InternalDomains[0]
     } else {
         $SenderDomain = ($SenderAddress -split "@")[-1].ToLower()
+    }
+
+    # Age threshold check - skip emails newer than $AgeThresholdHours
+    if ($AgeThresholdHours -gt 0) {
+        $SimulatedAge = $Email.AgeHours
+        if ($SimulatedAge -lt $AgeThresholdHours) {
+            Write-Host "  WOULD SKIP [$SenderAddress] Too recent (simulated ${SimulatedAge}h old, threshold: ${AgeThresholdHours}h)" -ForegroundColor DarkYellow
+            Write-Host "             Subject: $Subject" -ForegroundColor DarkGray
+            $SkippedCount++
+            continue
+        }
     }
 
     # Pre-filter: automatic replies
@@ -264,3 +302,4 @@ Write-Host "  Would be deleted       : $DeletedCount" -ForegroundColor DarkGray
 Write-Host ""
 
 Stop-Transcript
+
